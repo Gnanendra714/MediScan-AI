@@ -1,0 +1,743 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MediScan AI — Medical Report Analyzer</title>
+    <link rel="stylesheet" href="/static/css/style.css" />
+  </head>
+  <body>
+    <div class="app-wrapper">
+      <!-- ── Header ─────────────────────────────────────────────────────────── -->
+      <header class="site-header">
+        <div class="ai-badge">
+          <span class="dot"></span> Intelligent Medical Report Analysis
+        </div>
+        <h1>Medi<em>Scan</em> AI</h1>
+        <p class="tagline">
+          Upload your medical report and get instant AI-powered health insights,
+          risk assessment, and personalised recommendations.
+        </p>
+      </header>
+
+      <!-- ── Upload Card ────────────────────────────────────────────────────── -->
+      <div class="card">
+        <div class="card-label">Upload Report</div>
+
+        <div
+          class="upload-zone"
+          id="upload-zone"
+          onclick="document.getElementById('file-input').click()"
+          ondragover="
+            event.preventDefault();
+            this.classList.add('drag-over');
+          "
+          ondragleave="this.classList.remove('drag-over')"
+          ondrop="handleDrop(event)"
+        >
+          <div class="upload-icon">📄</div>
+          <strong id="upload-title">Click to upload or drag &amp; drop</strong>
+          <p id="upload-sub">PDF, DOCX, TXT, PNG, JPG — max 32 MB</p>
+        </div>
+        <p class="file-label" id="file-label"></p>
+        <input
+          type="file"
+          id="file-input"
+          accept=".pdf,.docx,.txt,.png,.jpg,.jpeg"
+          style="display: none"
+          onchange="handleFile(this)"
+        />
+
+        <!-- OCR hint -->
+        <div id="ocr-hint" style="display: none; margin: -4px 0 14px">
+          <div
+            style="
+              font-size: 12px;
+              background: var(--green-light);
+              border: 1px solid #b7ddc9;
+              border-radius: 6px;
+              padding: 8px 12px;
+              color: var(--green);
+            "
+          >
+            🔍 <strong>Image detected</strong> — text will be extracted
+            automatically via OCR. If the result is poor, paste the text
+            manually below.
+          </div>
+        </div>
+
+        <div class="divider">or paste report text</div>
+
+        <textarea
+          id="report-text"
+          placeholder="Paste your medical report text here…&#10;&#10;Example:&#10;Hemoglobin: 15.2 g/dL&#10;Glucose (Fasting): 92 mg/dL&#10;HbA1c: 5.2%&#10;LDL Cholesterol: 90 mg/dL"
+        ></textarea>
+
+        <div class="form-row" style="margin-top: 1rem; gap: 0.75rem">
+          <div
+            class="form-group"
+            style="flex: 1; display: flex; align-items: flex-end"
+          >
+            <button
+              class="btn btn-secondary"
+              type="button"
+              onclick="clearAll()"
+              style="width: 100%"
+            >
+              ✕ Clear
+            </button>
+          </div>
+          <div
+            class="form-group"
+            style="flex: 1; display: flex; align-items: flex-end"
+          >
+            <button
+              class="btn btn-secondary"
+              type="button"
+              onclick="loadSample()"
+              style="width: 100%"
+            >
+              📋 Load Sample Report
+            </button>
+          </div>
+        </div>
+
+        <button
+          class="btn btn-primary"
+          id="analyze-btn"
+          onclick="analyze()"
+          style="margin-top: 0.75rem"
+        >
+          <span id="btn-text">🔬 Analyze Report</span>
+          <span class="spinner" id="spinner" style="display: none"></span>
+        </button>
+        <p class="error-msg" id="error-msg">⚠ <span id="error-text"></span></p>
+      </div>
+
+      <div id="process-overlay" class="process-overlay">
+        <div class="process-card">
+          <div class="process-ring"></div>
+          <div class="process-text" id="process-text">
+            Extracting medical parameters…
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Results ────────────────────────────────────────────────────────── -->
+      <div id="results">
+        <!-- Patient Details -->
+        <div class="card patient-card" id="patient-card" style="display: none">
+          <div class="patient-top">
+            <div class="patient-title">
+              <strong id="patient-name"></strong>
+              <span id="patient-reported"></span>
+            </div>
+            <div class="patient-risk" id="patient-risk"></div>
+          </div>
+          <div class="patient-meta" id="patient-meta"></div>
+        </div>
+
+        <!-- Download + QR ──────────────────────────────────────────────────── -->
+        <div class="card">
+          <div class="card-label">📥 Download Report</div>
+          <div class="dl-layout">
+            <!-- QR side -->
+            <div class="qr-panel">
+              <div class="qr-box">
+                <span
+                  id="qr-loading"
+                  style="font-size: 12px; color: var(--muted)"
+                  >⏳ Generating…</span
+                >
+                <img
+                  id="qr-img"
+                  src=""
+                  alt="QR Code"
+                  style="
+                    display: none;
+                    width: 148px;
+                    height: 148px;
+                    border-radius: 4px;
+                  "
+                />
+              </div>
+              <div class="qr-cap">📱 Scan on any device to download</div>
+              <div class="qr-url" id="qr-url"></div>
+            </div>
+
+            <!-- Buttons side -->
+            <div class="dl-btns">
+              <div class="dl-section-label">Choose Format</div>
+
+              <a class="dl-btn dl-pdf dl-off" id="dl-pdf" href="#" download>
+                <span class="dl-ico">📄</span>
+                <span class="dl-info">
+                  <b class="dl-name">PDF Report</b>
+                  <small class="dl-desc"
+                    >Full report — tables, charts, recommendations</small
+                  >
+                </span>
+              </a>
+
+              <a class="dl-btn dl-png dl-off" id="dl-png" href="#" download>
+                <span class="dl-ico">🖼</span>
+                <span class="dl-info">
+                  <b class="dl-name">PNG Image</b>
+                  <small class="dl-desc">High-quality lossless image</small>
+                </span>
+              </a>
+
+              <a class="dl-btn dl-jpg dl-off" id="dl-jpg" href="#" download>
+                <span class="dl-ico">📷</span>
+                <span class="dl-info">
+                  <b class="dl-name">JPG Image</b>
+                  <small class="dl-desc">Compressed — smaller file size</small>
+                </span>
+              </a>
+            </div>
+          </div>
+
+          <!-- OCR preview -->
+          <div id="ocr-wrap" style="display: none; margin-top: 14px">
+            <span class="ocr-toggle" onclick="toggleOCR()"
+              >▶ Show extracted OCR text</span
+            >
+            <pre class="ocr-pre" id="ocr-pre"></pre>
+          </div>
+        </div>
+
+        <!-- Risk Score ───────────────────────────────────────────────────────── -->
+        <div class="card score-card">
+          <div class="card-label">Health Risk Assessment</div>
+          <div class="score-section">
+            <div class="ring-wrap">
+              <svg width="110" height="110" viewBox="0 0 110 110">
+                <circle
+                  cx="55"
+                  cy="55"
+                  r="46"
+                  fill="none"
+                  stroke="#ede9e2"
+                  stroke-width="9"
+                />
+                <circle
+                  id="ring-circle"
+                  cx="55"
+                  cy="55"
+                  r="46"
+                  fill="none"
+                  stroke="#2d6a4f"
+                  stroke-width="9"
+                  stroke-dasharray="289"
+                  stroke-dashoffset="289"
+                  stroke-linecap="round"
+                  style="
+                    transition:
+                      stroke-dashoffset 1.2s ease,
+                      stroke 0.6s ease;
+                  "
+                />
+              </svg>
+              <div class="ring-label">
+                <span class="ring-num" id="ring-num">—</span>
+                <span class="ring-sub">/ 100</span>
+              </div>
+            </div>
+            <div class="score-meta">
+              <h3 id="risk-title">—</h3>
+              <p id="summary-text"></p>
+              <span class="status-badge" id="status-badge"></span>
+              <div
+                style="margin-top: 8px; font-size: 12px; color: var(--muted)"
+                id="ai-label"
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Critical Alerts ──────────────────────────────────────────────────── -->
+        <div class="card" id="alerts-card" style="display: none">
+          <div
+            class="card-label"
+            style="color: var(--red); border-color: var(--red)"
+          >
+            ⚠ Critical Alerts
+          </div>
+          <div id="alerts-list"></div>
+        </div>
+
+        <!-- Charts ───────────────────────────────────────────────────────────── -->
+        <div class="chart-grid">
+          <div class="chart-box">
+            <div class="chart-title">Parameter Status</div>
+            <canvas id="statusChart" height="180"></canvas>
+          </div>
+          <div class="chart-box">
+            <div class="chart-title">Risk Score</div>
+            <canvas id="riskChart" height="180"></canvas>
+          </div>
+        </div>
+
+        <!-- Parameters ───────────────────────────────────────────────────────── -->
+        <div class="card">
+          <div class="card-label">Laboratory Parameters</div>
+          <div class="params-wrap">
+            <table class="params-table">
+              <thead>
+                <tr>
+                  <th>Parameter</th>
+                  <th>Value</th>
+                  <th>Normal Range</th>
+                  <th>Status</th>
+                  <th>Interpretation</th>
+                </tr>
+              </thead>
+              <tbody id="params-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Conditions ───────────────────────────────────────────────────────── -->
+        <div class="card" id="conditions-card" style="display: none">
+          <div class="card-label">Conditions Identified</div>
+          <div id="conditions-list"></div>
+        </div>
+
+        <!-- Recommendations ──────────────────────────────────────────────────── -->
+        <div class="card">
+          <div class="card-label">Recommendations</div>
+          <div id="recs-list"></div>
+        </div>
+
+        <!-- Lifestyle ────────────────────────────────────────────────────────── -->
+        <div class="card" id="lifestyle-card" style="display: none">
+          <div class="card-label">Lifestyle Advice</div>
+          <div id="lifestyle-list"></div>
+        </div>
+
+        <!-- Follow-up ────────────────────────────────────────────────────────── -->
+        <div class="card" id="followup-card" style="display: none">
+          <div class="card-label">Follow-up</div>
+          <p
+            id="followup-text"
+            style="font-size: 13px; color: var(--muted)"
+          ></p>
+        </div>
+
+        <!-- Disclaimer ───────────────────────────────────────────────────────── -->
+        <div class="disclaimer">
+          <span>⚕</span>
+          <span id="disclaimer-text"
+            >This analysis is AI-generated and should not replace professional
+            medical advice. Please consult a qualified healthcare
+            provider.</span
+          >
+        </div>
+      </div>
+      <!-- /results -->
+    </div>
+    <!-- /app-wrapper -->
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+      let statusChart = null,
+        riskChart = null,
+        selectedFile = null;
+      const loadingMessages = [
+        "Extracting medical parameters…",
+        "Consulting AI diagnostic engine…",
+        "Evaluating health risks…",
+        "Generating clinical recommendations…",
+        "Compiling your report…",
+      ];
+      let loadingInterval = null;
+
+      function handleFile(input) {
+        if (input.files.length) setFile(input.files[0]);
+      }
+      function handleDrop(e) {
+        e.preventDefault();
+        document.getElementById("upload-zone").classList.remove("drag-over");
+        if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
+      }
+      function setFile(f) {
+        selectedFile = f;
+        const lbl = document.getElementById("file-label");
+        lbl.textContent = `📎 ${f.name}  (${(f.size / 1024).toFixed(1)} KB)`;
+        lbl.style.display = "block";
+        document.getElementById("ocr-hint").style.display =
+          /\.(png|jpg|jpeg)$/i.test(f.name) ? "block" : "none";
+        document.getElementById("upload-title").textContent = f.name;
+        document.getElementById("upload-sub").textContent =
+          "Click to change file";
+      }
+
+      async function loadSample() {
+        const d = await (await fetch("/sample")).json();
+        document.getElementById("report-text").value = d.sample.trim();
+        selectedFile = null;
+        document.getElementById("file-label").style.display = "none";
+        document.getElementById("ocr-hint").style.display = "none";
+        document.getElementById("upload-title").textContent =
+          "Click to upload or drag & drop";
+        document.getElementById("upload-sub").textContent =
+          "PDF, DOCX, TXT, PNG, JPG — max 32 MB";
+      }
+
+      async function analyze() {
+        const btn = document.getElementById("analyze-btn");
+        const sp = document.getElementById("spinner");
+        const bt = document.getElementById("btn-text");
+        const em = document.getElementById("error-msg");
+        em.style.display = "none";
+        document.getElementById("results").style.display = "none";
+
+        ["dl-pdf", "dl-png", "dl-jpg"].forEach((id) => {
+          const el = document.getElementById(id);
+          el.classList.add("dl-off");
+          el.href = "#";
+        });
+        document.getElementById("qr-img").style.display = "none";
+        document.getElementById("qr-loading").style.display = "inline";
+        document.getElementById("qr-loading").textContent = "⏳ Generating…";
+        document.getElementById("qr-url").textContent = "";
+
+        const form = new FormData();
+        if (selectedFile) form.append("file", selectedFile);
+        const text = document.getElementById("report-text").value.trim();
+        if (text) form.append("report_text", text);
+
+        if (!selectedFile && !text) {
+          document.getElementById("error-text").textContent =
+            "Please upload a file or paste report text.";
+          em.style.display = "flex";
+          return;
+        }
+
+        btn.disabled = true;
+        sp.style.display = "inline-block";
+        bt.textContent = "Analyzing…";
+        const overlay = document.getElementById("process-overlay");
+        const processText = document.getElementById("process-text");
+        let index = 0;
+        processText.textContent = loadingMessages[index];
+        loadingInterval = setInterval(() => {
+          index = (index + 1) % loadingMessages.length;
+          processText.textContent = loadingMessages[index];
+        }, 1800);
+        overlay.classList.add("active");
+        try {
+          const res = await fetch("/analyze", { method: "POST", body: form });
+          const data = await res.json();
+          if (data.error) {
+            document.getElementById("error-text").textContent = data.error;
+            em.style.display = "flex";
+            return;
+          }
+          render(data);
+        } catch (e) {
+          document.getElementById("error-text").textContent =
+            "Network error: " + e.message;
+          em.style.display = "flex";
+        } finally {
+          btn.disabled = false;
+          sp.style.display = "none";
+          bt.textContent = "🔬 Analyze Report";
+          overlay.classList.remove("active");
+          clearInterval(loadingInterval);
+          loadingInterval = null;
+          document.getElementById("process-text").textContent =
+            loadingMessages[0];
+        }
+      }
+
+      function clearAll() {
+        selectedFile = null;
+        document.getElementById("file-input").value = "";
+        document.getElementById("file-label").style.display = "none";
+        document.getElementById("ocr-hint").style.display = "none";
+        document.getElementById("upload-title").textContent =
+          "Click to upload or drag & drop";
+        document.getElementById("upload-sub").textContent =
+          "PDF, DOCX, TXT, PNG, JPG — max 32 MB";
+        document.getElementById("report-text").value = "";
+        document.getElementById("error-msg").style.display = "none";
+        document.getElementById("results").style.display = "none";
+        document.getElementById("qr-img").style.display = "none";
+        document.getElementById("qr-loading").style.display = "inline";
+        document.getElementById("qr-loading").textContent = "⏳ Generating…";
+        document.getElementById("qr-url").textContent = "";
+        ["dl-pdf", "dl-png", "dl-jpg"].forEach((id) => {
+          const el = document.getElementById(id);
+          el.classList.add("dl-off");
+          el.href = "#";
+        });
+      }
+
+      function render(d) {
+        document.getElementById("results").style.display = "block";
+
+        // QR
+        document.getElementById("qr-loading").style.display = "none";
+        if (d.qr_code) {
+          const img = document.getElementById("qr-img");
+          img.src = d.qr_code;
+          img.style.display = "block";
+        } else {
+          document.getElementById("qr-loading").textContent =
+            "URL: " + (d.download_url || "");
+          document.getElementById("qr-loading").style.display = "inline";
+        }
+        document.getElementById("qr-url").textContent = d.download_url || "";
+
+        // Download buttons
+        const btnMap = {
+          pdf: ["dl-pdf", "report_file"],
+          png: ["dl-png", "report_png"],
+          jpg: ["dl-jpg", "report_jpg"],
+        };
+        Object.entries(btnMap).forEach(([ext, [id, key]]) => {
+          if (d[key]) {
+            const el = document.getElementById(id);
+            el.href = "/download/" + d[key];
+            el.download = d[key];
+            el.classList.remove("dl-off");
+          }
+        });
+
+        // OCR preview
+        if (d.extracted_preview && d.extracted_preview.length > 10) {
+          document.getElementById("ocr-pre").textContent = d.extracted_preview;
+          document.getElementById("ocr-wrap").style.display = "block";
+        } else {
+          document.getElementById("ocr-wrap").style.display = "none";
+        }
+
+        // Ring
+        const score = d.risk_score || 0;
+        const patientCard = document.getElementById("patient-card");
+        const patientName = d.patient_name || d.patient || "";
+        const patientReported =
+          d.reported_on || d.reported_date || d.date || "";
+        const patientAge = d.age || d.patient_age || "";
+        const patientGender = d.gender || d.patient_gender || "";
+        const riskText = d.risk_level
+          ? `${d.risk_level} | Score: ${score}/100`
+          : `Score: ${score}/100`;
+        const hasPatientDetails =
+          !!patientName || !!patientReported || !!patientAge || !!patientGender;
+
+        if (hasPatientDetails) {
+          patientCard.style.display = "block";
+          document.getElementById("patient-name").textContent =
+            patientName || "Patient";
+          document.getElementById("patient-reported").textContent =
+            patientReported ? `Reported on ${patientReported}` : "";
+          document.getElementById("patient-risk").textContent = riskText;
+          const meta = [];
+          if (patientAge) meta.push(`Age: ${patientAge}`);
+          if (patientGender) meta.push(`Gender: ${patientGender}`);
+          document.getElementById("patient-meta").textContent =
+            meta.join(" | ");
+        } else {
+          patientCard.style.display = "none";
+        }
+
+        const circ = 2 * Math.PI * 46;
+        const c = document.getElementById("ring-circle");
+        c.style.strokeDasharray = circ;
+        c.style.strokeDashoffset = circ - (score / 100) * circ;
+        c.style.stroke =
+          score < 30 ? "#2d6a4f" : score < 60 ? "#b7700d" : "#c1392b";
+        document.getElementById("ring-num").textContent = score;
+
+        const risk = d.risk_level || "Unknown";
+        document.getElementById("risk-title").textContent = risk;
+        document.getElementById("summary-text").textContent = d.summary || "";
+        document.getElementById("ai-label").textContent =
+          "🤖 " + (d.ai_provider || "");
+
+        const badge = document.getElementById("status-badge");
+        badge.textContent = risk;
+        badge.className = "status-badge";
+        badge.classList.add(
+          risk === "Normal"
+            ? "status-good"
+            : risk.includes("Attention")
+              ? "status-moderate"
+              : "status-attention",
+        );
+
+        // Alerts
+        const alerts = d.critical_alerts || [];
+        const ac = document.getElementById("alerts-card");
+        if (alerts.length) {
+          ac.style.display = "block";
+          document.getElementById("alerts-list").innerHTML = alerts
+            .map(
+              (a) => `<div class="insight-block insight-danger">⚠ ${a}</div>`,
+            )
+            .join("");
+        } else ac.style.display = "none";
+
+        // Params
+        const params = d.parameters || [];
+        document.getElementById("params-tbody").innerHTML = params
+          .map((p) => {
+            const st = p.status || "Normal";
+            const dot =
+              st === "Normal"
+                ? "dot-normal"
+                : st.includes("High")
+                  ? "dot-high"
+                  : st.includes("Low")
+                    ? "dot-low"
+                    : "dot-unknown";
+            const tag =
+              st === "Normal"
+                ? "tag-normal"
+                : st.includes("High")
+                  ? "tag-high"
+                  : st.includes("Low")
+                    ? "tag-low"
+                    : "tag-unknown";
+            return `<tr>
+      <td><span class="status-dot ${dot}"></span><strong>${p.name || ""}</strong></td>
+      <td><strong>${p.value || ""}</strong></td>
+      <td style="color:var(--muted);font-size:12px">${p.normal_range || ""}</td>
+      <td><span class="tag ${tag}">${st}</span></td>
+      <td style="font-size:12px;color:var(--muted)">${p.interpretation || ""}</td>
+    </tr>`;
+          })
+          .join("");
+
+        // Conditions
+        const conds = d.conditions_identified || [];
+        const cc = document.getElementById("conditions-card");
+        if (conds.length) {
+          cc.style.display = "block";
+          document.getElementById("conditions-list").innerHTML = conds
+            .map((c) => {
+              const cls =
+                c.confidence === "High"
+                  ? "insight-danger"
+                  : c.confidence === "Moderate"
+                    ? "insight-warning"
+                    : "insight-info";
+              return `<div class="insight-block ${cls}"><strong>${c.condition}</strong> — ${c.confidence} confidence<br><span style="font-size:12px">${c.evidence || ""}</span></div>`;
+            })
+            .join("");
+        } else cc.style.display = "none";
+
+        // Recs
+        const pIco = { Urgent: "🚨", High: "🔴", Medium: "🟡", Low: "🟢" };
+        document.getElementById("recs-list").innerHTML = (
+          d.recommendations || []
+        )
+          .map(
+            (r) =>
+              `<div class="rec-item"><div class="rec-icon">${pIco[r.priority] || "💊"}</div><div class="rec-text"><strong>${r.priority}:</strong> ${r.action}</div></div>`,
+          )
+          .join("");
+
+        // Lifestyle
+        const life = d.lifestyle_advice || [];
+        const lc = document.getElementById("lifestyle-card");
+        if (life.length) {
+          lc.style.display = "block";
+          document.getElementById("lifestyle-list").innerHTML = life
+            .map((l) => `<div class="insight-block insight-info">✓ ${l}</div>`)
+            .join("");
+        } else lc.style.display = "none";
+
+        // Followup
+        if (d.followup) {
+          document.getElementById("followup-card").style.display = "block";
+          document.getElementById("followup-text").textContent = d.followup;
+        }
+        if (d.disclaimer)
+          document.getElementById("disclaimer-text").textContent = d.disclaimer;
+
+        renderCharts(params, score);
+        setTimeout(
+          () =>
+            document
+              .getElementById("results")
+              .scrollIntoView({ behavior: "smooth", block: "start" }),
+          120,
+        );
+      }
+
+      function renderCharts(params, score) {
+        let n = 0,
+          h = 0,
+          l = 0;
+        params.forEach((p) => {
+          const s = p.status || "Normal";
+          if (s === "Normal") n++;
+          else if (s.includes("High")) h++;
+          else if (s.includes("Low")) l++;
+          else n++;
+        });
+        if (statusChart) statusChart.destroy();
+        statusChart = new Chart(document.getElementById("statusChart"), {
+          type: "doughnut",
+          data: {
+            labels: ["Normal", "High", "Low"],
+            datasets: [
+              {
+                data: [n, h, l],
+                backgroundColor: ["#2d6a4f", "#c1392b", "#b7700d"],
+                borderWidth: 0,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: {
+                position: "bottom",
+                labels: { boxWidth: 10, font: { size: 11 } },
+              },
+            },
+          },
+        });
+        if (riskChart) riskChart.destroy();
+        riskChart = new Chart(document.getElementById("riskChart"), {
+          type: "bar",
+          data: {
+            labels: ["Risk Score"],
+            datasets: [
+              {
+                label: "Score",
+                data: [score],
+                backgroundColor:
+                  score < 30 ? "#2d6a4f" : score < 60 ? "#b7700d" : "#c1392b",
+              },
+              { label: "Max", data: [100], backgroundColor: "#ede9e2" },
+            ],
+          },
+          options: {
+            indexAxis: "y",
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { max: 100, grid: { display: false } },
+              y: { display: false },
+            },
+          },
+        });
+      }
+
+      function toggleOCR() {
+        const pre = document.getElementById("ocr-pre");
+        const tog = document.querySelector(".ocr-toggle");
+        const show = pre.style.display === "none" || !pre.style.display;
+        pre.style.display = show ? "block" : "none";
+        tog.textContent = show
+          ? "▼ Hide extracted OCR text"
+          : "▶ Show extracted OCR text";
+      }
+    </script>
+  </body>
+</html>

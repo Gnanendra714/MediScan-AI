@@ -1,0 +1,13 @@
+flask
+flask-cors
+python-dotenv
+Werkzeug
+requests
+pdfplumber
+PyPDF2
+python-docx
+qrcode[pil]
+reportlab
+groq
+gunicorn
+Pillow

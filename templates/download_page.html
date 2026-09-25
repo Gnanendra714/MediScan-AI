@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MediScan AI — Download Report</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Serif+Display:ital@0;1&display=swap");
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "DM Sans", sans-serif;
+        background: #f4f1ec;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      .card {
+        background: #fff;
+        border-radius: 20px;
+        padding: 40px 36px;
+        max-width: 460px;
+        width: 100%;
+        box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12);
+        text-align: center;
+      }
+      .logo {
+        font-size: 52px;
+        margin-bottom: 12px;
+        line-height: 1;
+      }
+      h1 {
+        font-size: 22px;
+        color: #102a43;
+        margin-bottom: 6px;
+        font-weight: 700;
+      }
+      .sub {
+        color: #475569;
+        font-size: 14px;
+        margin-bottom: 30px;
+        line-height: 1.5;
+      }
+      .btn-group {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 28px;
+      }
+      .btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 15px 24px;
+        border-radius: 12px;
+        font-size: 15px;
+        font-weight: 600;
+        text-decoration: none;
+        transition:
+          transform 0.15s,
+          opacity 0.15s;
+        cursor: pointer;
+        width: 100%;
+      }
+      .btn:hover {
+        transform: translateY(-2px);
+        opacity: 0.92;
+      }
+      .btn:active {
+        transform: scale(0.98);
+      }
+      .btn-pdf {
+        background: #2d8cf0;
+        color: #fff;
+      }
+      .btn-png {
+        background: #0abfbc;
+        color: #fff;
+      }
+      .btn-jpg {
+        background: #f97316;
+        color: #fff;
+      }
+      .btn-disabled {
+        background: #e8e5e0;
+        color: #b0aca6;
+        cursor: not-allowed;
+        pointer-events: none;
+      }
+      .badge {
+        font-size: 11px;
+        background: rgba(255, 255, 255, 0.28);
+        padding: 2px 8px;
+        border-radius: 10px;
+        margin-left: 2px;
+      }
+      .divider {
+        height: 1px;
+        background: #ede9e2;
+        margin: 6px 0;
+      }
+      .footer {
+        font-size: 12px;
+        color: #7a756e;
+        border-top: 1px solid #ede9e2;
+        padding-top: 18px;
+        line-height: 1.6;
+      }
+      .footer strong {
+        color: #0abfbc;
+      }
+      .disclaimer {
+        margin-top: 8px;
+        font-size: 11px;
+        color: #6b7280;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="logo">🏥</div>
+      <h1>MediScan AI Report</h1>
+      <p class="sub">
+        Your medical report is ready.<br />Choose a format to download:
+      </p>
+
+      <div class="btn-group">
+        {% if 'pdf' in files %}
+        <a href="/download/{{ files['pdf'] }}" class="btn btn-pdf">
+          📄 Download as PDF <span class="badge">Recommended</span>
+        </a>
+        {% else %}
+        <span class="btn btn-disabled">📄 PDF — Not available</span>
+        {% endif %} {% if 'png' in files %}
+        <a href="/download/{{ files['png'] }}" class="btn btn-png">
+          🖼 Download as PNG <span class="badge">Image</span>
+        </a>
+        {% else %}
+        <span class="btn btn-disabled">🖼 PNG — Not available</span>
+        {% endif %} {% if 'jpg' in files %}
+        <a href="/download/{{ files['jpg'] }}" class="btn btn-jpg">
+          📷 Download as JPG <span class="badge">Compressed</span>
+        </a>
+        {% else %}
+        <span class="btn btn-disabled">📷 JPG — Not available</span>
+        {% endif %}
+      </div>
+
+      <div class="footer">
+        <strong>MediScan AI</strong> — AI-Powered Medical Report Analysis
+        <div class="disclaimer">
+          ⚕ This report is AI-generated and should not replace professional
+          medical advice.
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
