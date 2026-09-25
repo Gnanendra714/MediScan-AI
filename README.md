@@ -91,7 +91,7 @@ to GitHub.
 
 1. Clone the repository
 
-git clone https://github.com/YOUR_USERNAME/MediScan-AI.git
+git clone https://github.com/gnanendra714/MediScan-AI.git
 cd MediScan-AI
 
 2. Create a virtual environment
